@@ -37,25 +37,19 @@ type File struct {
 //
 // If src != nil, NewFile parses the source from src.
 func NewFile(filename string, src interface{}) (*File, error) {
-	var err error
-	file := new(File)
-
 	// Parse the Go source from either filename or src.
-	file.File, err = parser.ParseFile(token.NewFileSet(), filename, src, parser.ParseComments)
+	parsed, err := parser.ParseFile(token.NewFileSet(), filename, src, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get the file's package name.
-	file.Package = file.Name.String()
-
-	// Get the file's imports.
-	file.Imports = InspectImports(file.File)
-
-	// Get the file's functions.
-	file.Functions = InspectFunctions(file.File)
-
-	return file, nil
+	// Return a new File with it's fields set appropriately.
+	return &File{
+		File:      parsed,
+		Package:   parsed.Name.String(),     // Get the file's package name.
+		Imports:   InspectImports(parsed),   // Get the file's imports.
+		Functions: InspectFunctions(parsed), // Get the file's functions.
+	}, nil
 }
 
 // InspectFunctions generates a Functions map from an *ast.File object.
