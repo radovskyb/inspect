@@ -29,6 +29,14 @@ func main() {
 	fmt.Printf("Package %q:\n", file.Package)
 	fmt.Println("--------------------\n")
 
+	// Print the file's imports.
+	fmt.Println("Imports:")
+	fmt.Println("--------------------")
+	for _, i := range file.Imports {
+		fmt.Println(i)
+	}
+	fmt.Println("--------------------\n")
+
 	// Print all of the file's unexported function's names.
 	fmt.Println("Unexported functions:")
 	fmt.Println("--------------------")
