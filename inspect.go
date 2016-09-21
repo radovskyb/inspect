@@ -86,31 +86,33 @@ func InspectFunctions(file *ast.File, fileReader io.ReadSeeker) (map[string]*Fun
 	var bb = new(bytes.Buffer)
 	for _, d := range file.Decls {
 		if f, okay := d.(*ast.FuncDecl); okay {
-			sigStart := int64(f.Pos() - 1)
-			sigEnd := int64(f.Body.Lbrace - 2)
+			if f.Body != nil {
+				sigStart := int64(f.Pos() - 1)
+				sigEnd := int64(f.Body.Lbrace - 2)
 
-			toRead := sigEnd - sigStart
+				toRead := sigEnd - sigStart
 
-			// Go to the start of the function declaration.
-			_, err := fileReader.Seek(sigStart, io.SeekStart)
-			if err != nil {
-				return nil, err
-			}
+				// Go to the start of the function declaration.
+				_, err := fileReader.Seek(sigStart, io.SeekStart)
+				if err != nil {
+					return nil, err
+				}
 
-			// Make sure bb is empty.
-			bb.Reset()
+				// Make sure bb is empty.
+				bb.Reset()
 
-			// Read toRead number of bytes from fileReader to bb.
-			_, err = io.CopyN(bb, fileReader, toRead)
-			if err != nil {
-				return nil, err
-			}
+				// Read toRead number of bytes from fileReader to bb.
+				_, err = io.CopyN(bb, fileReader, toRead)
+				if err != nil && err != io.EOF {
+					return nil, err
+				}
 
-			functions[f.Name.String()] = &Function{
-				file.Name.String(),
-				f.Name.String(),
-				strings.TrimSpace(f.Doc.Text()),
-				bb.String(),
+				functions[f.Name.String()] = &Function{
+					file.Name.String(),
+					f.Name.String(),
+					strings.TrimSpace(f.Doc.Text()),
+					bb.String(),
+				}
 			}
 		}
 	}
