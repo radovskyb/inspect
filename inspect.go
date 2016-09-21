@@ -10,14 +10,20 @@ import (
 
 // A Function contains a function name and it's documentation text.
 type Function struct {
-	Package string
-	Name    string
-	Doc     string
+	Package  string
+	Name     string
+	Doc      string
+	IsMethod bool
+	RecvType string
 }
 
 // String prints a function's name and documentation underneath it.
 func (f Function) String() string {
-	return fmt.Sprintf("%s:\n---------------\n%s\n", f.Name, f.Doc)
+	var str string
+	if f.IsMethod {
+		str += "(" + f.RecvType + ")."
+	}
+	return fmt.Sprintf("%s%s:\n---------------\n%s\n", str, f.Name, f.Doc)
 }
 
 // IsExported is a wrapper around ast.IsExported and returns a true or false
@@ -61,12 +67,25 @@ func NewFile(filename string, src interface{}) (*File, error) {
 func InspectFunctions(file *ast.File) map[string]*Function {
 	functions := make(map[string]*Function)
 
+	var recvTypeStr string
 	for _, d := range file.Decls {
 		if f, okay := d.(*ast.FuncDecl); okay {
+			if f.Recv != nil {
+				recvType := f.Recv.List[0].Type
+
+				if recvPtrType, ptrType := recvType.(*ast.StarExpr); ptrType {
+					recvTypeStr = "*" + recvPtrType.X.(*ast.Ident).Name
+				} else {
+					recvTypeStr = recvType.(*ast.Ident).Name
+				}
+			}
+
 			functions[f.Name.String()] = &Function{
 				file.Name.String(),
 				f.Name.String(),
 				strings.TrimSpace(f.Doc.Text()),
+				f.Recv != nil,
+				recvTypeStr,
 			}
 		}
 	}

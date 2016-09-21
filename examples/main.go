@@ -34,7 +34,7 @@ func main() {
 	fmt.Println("--------------------")
 	for _, f := range file.Functions {
 		if !f.IsExported() {
-			fmt.Println(f.Name)
+			fmt.Println(f)
 		}
 	}
 	fmt.Println("--------------------\n")
@@ -44,7 +44,7 @@ func main() {
 	fmt.Println("--------------------")
 	for _, f := range file.Functions {
 		if f.IsExported() {
-			fmt.Println(f.Name)
+			fmt.Println(f)
 		}
 	}
 	fmt.Println("--------------------\n")
