@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// A Function contains a function name and it's documentation text.
+// A Function contains information about a function.
 type Function struct {
 	Package   string
 	Name      string
