@@ -1,6 +1,7 @@
 package inspect
 
 import (
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -9,8 +10,14 @@ import (
 
 // A Function contains a function name and it's documentation text.
 type Function struct {
-	Name string
-	Doc  string
+	Package string
+	Name    string
+	Doc     string
+}
+
+// String prints a function's name and documentation underneath it.
+func (f Function) String() string {
+	return fmt.Sprintf("%s:\n---------------\n%s\n", f.Name, f.Doc)
 }
 
 // IsExported is a wrapper around ast.IsExported and returns a true or false
@@ -27,7 +34,6 @@ type Functions map[string]*Function
 // wrapper around *ast.File.
 type File struct {
 	*ast.File
-	Package string
 	Imports []string
 	Functions
 }
@@ -46,7 +52,6 @@ func NewFile(filename string, src interface{}) (*File, error) {
 	// Return a new File with it's fields set appropriately.
 	return &File{
 		File:      parsed,
-		Package:   parsed.Name.String(),     // Get the file's package name.
 		Imports:   InspectImports(parsed),   // Get the file's imports.
 		Functions: InspectFunctions(parsed), // Get the file's functions.
 	}, nil
@@ -59,6 +64,7 @@ func InspectFunctions(file *ast.File) map[string]*Function {
 	for _, d := range file.Decls {
 		if f, okay := d.(*ast.FuncDecl); okay {
 			functions[f.Name.String()] = &Function{
+				file.Name.String(),
 				f.Name.String(),
 				strings.TrimSpace(f.Doc.Text()),
 			}
