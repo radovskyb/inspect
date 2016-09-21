@@ -47,8 +47,4 @@ func main() {
 			fmt.Println(f)
 		}
 	}
-	fmt.Println("--------------------\n")
-
-	// Print the documentation for the function named `Get`.
-	fmt.Println(file.Functions["Get"].Doc)
 }
