@@ -4,19 +4,18 @@ import (
 	"bytes"
 	"go/ast"
 	"go/parser"
-	"go/printer"
 	"go/token"
+	"io"
+	"io/ioutil"
 	"strings"
 )
 
-var fset = token.NewFileSet()
-
-// A Function contains information about a function.
+// A Function contains a function name and it's documentation text.
 type Function struct {
 	Package   string
 	Name      string
-	Signature string
 	Doc       string
+	Signature string
 }
 
 // String prints a function's information.
@@ -52,52 +51,73 @@ type File struct {
 //
 // If src != nil, NewFile parses the source from src.
 func NewFile(filename string, src interface{}) (*File, error) {
+	if src == nil {
+		slurp, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return nil, err
+		}
+		src = bytes.NewReader(slurp)
+	}
+
 	// Parse the Go source from either filename or src.
-	parsed, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
+	parsed, err := parser.ParseFile(token.NewFileSet(), "", src, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return a new File with it's fields set appropriately.
+	functions, err := InspectFunctions(parsed, src.(io.ReadSeeker))
+	if err != nil {
+		return nil, err
+	}
+
 	return &File{
 		File:      parsed,
-		Imports:   InspectImports(parsed),   // Get the file's imports.
-		Functions: InspectFunctions(parsed), // Get the file's functions.
+		Imports:   InspectImports(parsed), // Get the file's imports.
+		Functions: functions,              // Get the file's functions.
 	}, nil
 }
 
-// InspectFunctions generates a Functions map from an *ast.File object.
-func InspectFunctions(file *ast.File) map[string]*Function {
+// InspectFunctions generates a Functions map from an *ast.File object and an
+// io.ReadSeaker containing the file's bytes.
+func InspectFunctions(file *ast.File, fileReader io.ReadSeeker) (map[string]*Function, error) {
 	functions := make(map[string]*Function)
 
-	bb := new(bytes.Buffer)
-	ast.Inspect(file, func(n ast.Node) bool {
-		bb.Reset()
-		if fnc, ok := n.(*ast.FuncDecl); ok {
-			if fnc.Body == nil {
-				return false
-			}
-			if err := printer.Fprint(bb, fset, fnc); err != nil {
-				return false
-			}
+	var bb = new(bytes.Buffer)
+	for _, d := range file.Decls {
+		if f, okay := d.(*ast.FuncDecl); okay {
+			if f.Body != nil {
+				sigStart := int64(f.Pos() - 1)
+				sigEnd := int64(f.Body.Lbrace - 2)
 
-			var startPos, toRead int
-			if fnc.Doc.Text() != "" {
-				startPos = int(fnc.Type.Pos() - fnc.Doc.Pos())
-			}
-			toRead = int(fnc.Body.Pos() - fnc.Type.Pos() - 1)
+				toRead := sigEnd - sigStart
 
-			functions[fnc.Name.Name] = &Function{
-				Package:   file.Name.Name,
-				Name:      fnc.Name.Name,
-				Signature: bb.String()[startPos : startPos+toRead],
-				Doc:       strings.TrimSpace(fnc.Doc.Text()),
+				// Go to the start of the function declaration.
+				_, err := fileReader.Seek(sigStart, io.SeekStart)
+				if err != nil {
+					return nil, err
+				}
+
+				// Make sure bb is empty.
+				bb.Reset()
+
+				// Read toRead number of bytes from fileReader to bb.
+				_, err = io.CopyN(bb, fileReader, toRead)
+				if err != nil && err != io.EOF {
+					return nil, err
+				}
+
+				functions[f.Name.String()] = &Function{
+					file.Name.String(),
+					f.Name.String(),
+					strings.TrimSpace(f.Doc.Text()),
+					bb.String(),
+				}
 			}
 		}
-		return true
-	})
+	}
 
-	return functions
+	return functions, nil
 }
 
 // InspectImports generates a list of imports from an *ast.File object.
