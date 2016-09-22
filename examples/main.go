@@ -18,7 +18,7 @@ func main() {
 	}
 
 	// Print the file's package name.
-	fmt.Printf("Package %q:\n", file.Package)
+	fmt.Printf("Package %q:\n", file.Name.Name)
 	fmt.Println("--------------------\n")
 
 	// Print the file's imports.
@@ -44,7 +44,7 @@ func main() {
 	fmt.Println("--------------------")
 	for _, f := range file.Functions {
 		if f.IsExported() {
-			fmt.Println(f)
+			fmt.Println(f.Signature)
 		}
 	}
 }
