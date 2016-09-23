@@ -6,7 +6,6 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"io"
 	"io/ioutil"
 	"strings"
 )
@@ -68,22 +67,15 @@ func NewFile(filename string, src interface{}) (*File, error) {
 		return nil, err
 	}
 
-	// Return a new File with it's fields set appropriately.
-	functions, err := InspectFunctions(parsed, src.(io.ReadSeeker))
-	if err != nil {
-		return nil, err
-	}
-
 	return &File{
 		File:      parsed,
-		Imports:   InspectImports(parsed), // Get the file's imports.
-		Functions: functions,              // Get the file's functions.
+		Imports:   InspectImports(parsed),   // Get the file's imports.
+		Functions: InspectFunctions(parsed), // Get the file's functions.
 	}, nil
 }
 
-// InspectFunctions generates a Functions map from an *ast.File object and an
-// io.ReadSeaker containing the file's bytes.
-func InspectFunctions(file *ast.File, fileReader io.ReadSeeker) (map[string]*Function, error) {
+// InspectFunctions generates a Functions map from an *ast.File object.
+func InspectFunctions(file *ast.File) map[string]*Function {
 	functions := make(map[string]*Function)
 
 	bb := new(bytes.Buffer)
@@ -110,7 +102,7 @@ func InspectFunctions(file *ast.File, fileReader io.ReadSeeker) (map[string]*Fun
 		return true
 	})
 
-	return functions, nil
+	return functions
 }
 
 // InspectImports generates a list of imports from an *ast.File object.
