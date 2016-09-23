@@ -2,108 +2,140 @@ package inspect
 
 import (
 	"bytes"
+	"errors"
 	"go/ast"
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
-var fset = token.NewFileSet()
+var ErrParseDir = errors.New("error: parsing directory")
 
-// A Function contains a function name and it's documentation text.
+var FilterIgnoreTests = func(info os.FileInfo) bool {
+	return !strings.HasSuffix(info.Name(), "_test.go")
+}
+
+// A Package describes a package.
+type Package struct {
+	Name  string
+	Funcs []*Function
+}
+
+// A Function describes a function.
 type Function struct {
-	Package   string
-	Name      string
-	Doc       string
-	Signature string
+	Name          string `json:"Name"`
+	Signature     string `json:"Sig"`
+	Documentation string `json:"Doc,omitempty"`
 }
 
-// String prints a function's information.
-func (f Function) String() string {
-	separator := strings.Repeat("-", len(f.Signature))
-	str := f.Signature + "\n"
-	if f.Doc != "" {
-		str += separator + "\n" + f.Doc + "\n"
-	}
-	return str
-}
-
-// IsExported is a wrapper around ast.IsExported and returns a true or false
-// value based on whether the current function is exported or not.
-func (f Function) IsExported() bool {
-	return ast.IsExported(f.Name)
-}
-
-// Functions is a map that stores function names as keys and Function
-// objects as values.
-type Functions map[string]*Function
-
-// A File contains information about a Go source file. It is also a
-// wrapper around *ast.File.
-type File struct {
-	*ast.File
-	Imports []string
-	Functions
-}
-
-// NewFile creates a File object from either a file, via the filename parameter,
-// or source code, via the src parameter.
+// ParsePackagesFromDir parses all packages in a directory.
 //
-// If src != nil, NewFile parses the source from src.
-func NewFile(filename string, src interface{}) (*File, error) {
-	// Parse the Go source from either filename or src.
-	parsed, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
-	if err != nil {
-		return nil, err
+// If there are directories contained within dir, ParsePackagesFromDir
+// attempts to traverse into those directories as well.
+//
+// If an error occurs whilst traversing the nested directories,
+// ParsePackagesFromDir will return a map containing any correctly
+// passed packages and the error that occured.
+func ParsePackagesFromDir(dir string, ignoreTests bool) (map[string]*Package, error) {
+	fset := token.NewFileSet()
+
+	pkgs := make(map[string]*Package)
+
+	var filter func(os.FileInfo) bool
+	if ignoreTests {
+		filter = FilterIgnoreTests
 	}
 
-	return &File{
-		File:      parsed,
-		Imports:   InspectImports(parsed),   // Get the file's imports.
-		Functions: InspectFunctions(parsed), // Get the file's functions.
-	}, nil
+	if err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() || strings.HasPrefix(path, filepath.Join(dir, "cmd")) {
+			return nil
+		}
+
+		parsed, err := parser.ParseDir(fset, path, filter, parser.ParseComments)
+		if err != nil {
+			return err
+		}
+
+		for _, pkg := range parsed {
+			p := ParsePackage(pkg, fset)
+			if _, exists := pkgs[pkg.Name]; exists {
+				pkgs[pkg.Name].Funcs = append(pkgs[pkg.Name].Funcs, p.Funcs...)
+			} else {
+				pkgs[pkg.Name] = p
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return pkgs, err
+	}
+
+	return pkgs, nil
 }
 
-// InspectFunctions generates a Functions map from an *ast.File object.
-func InspectFunctions(file *ast.File) map[string]*Function {
-	functions := make(map[string]*Function)
+// ParsePackage returns a *Package generated from an *ast.Package.
+func ParsePackage(pkg *ast.Package, fset *token.FileSet) *Package {
+	p := &Package{Name: pkg.Name, Funcs: []*Function{}}
 
 	bb := new(bytes.Buffer)
-	ast.Inspect(file, func(n ast.Node) bool {
+	ast.Inspect(pkg, func(n ast.Node) bool {
 		bb.Reset()
 		if fnc, ok := n.(*ast.FuncDecl); ok {
-			fnc.Body = nil
-			if err := printer.Fprint(bb, fset, fnc); err != nil {
-				return false
-			}
-
-			var startPos int
-			if fnc.Doc.Text() != "" {
-				startPos = int(fnc.Type.Pos() - fnc.Doc.Pos())
-			}
-
-			functions[fnc.Name.Name] = &Function{
-				file.Name.String(),
-				fnc.Name.Name,
-				strings.TrimSpace(fnc.Doc.Text()),
-				bb.String()[startPos:],
+			f := ParseFunction(fnc, fset, bb)
+			if f != nil {
+				p.Funcs = append(p.Funcs, f)
 			}
 		}
 		return true
 	})
 
-	return functions
+	return p
 }
 
-// InspectImports generates a list of imports from an *ast.File object.
-func InspectImports(file *ast.File) []string {
-	imports := []string{}
+// ParseFile returns a []*Function's generated from an *ast.File.
+func ParseFile(file *ast.File, fset *token.FileSet) []*Function {
+	funcs := []*Function{}
 
-	// Append the file's imports to the imports string slice.
-	for _, i := range file.Imports {
-		imports = append(imports, strings.Trim(i.Path.Value, "\""))
+	bb := new(bytes.Buffer)
+	ast.Inspect(file, func(n ast.Node) bool {
+		bb.Reset()
+		if fnc, ok := n.(*ast.FuncDecl); ok {
+			f := ParseFunction(fnc, fset, bb)
+			if f != nil {
+				funcs = append(funcs, f)
+			}
+		}
+		return true
+	})
+
+	return funcs
+}
+
+// ParseFunction returns a *Function's generated from an *ast.FuncDecl.
+func ParseFunction(fnc *ast.FuncDecl, fset *token.FileSet, bb *bytes.Buffer) *Function {
+	f := &Function{Name: fnc.Name.Name}
+
+	// Skip the function if it's unexported.
+	if !fnc.Name.IsExported() {
+		return nil
 	}
 
-	return imports
+	fnc.Body = nil
+
+	if err := printer.Fprint(bb, fset, fnc); err != nil {
+		return nil
+	}
+
+	var startPos int
+	if fnc.Doc.Text() != "" {
+		startPos = int(fnc.Type.Pos() - fnc.Doc.Pos())
+	}
+
+	f.Signature = bb.String()[startPos:]
+	f.Documentation = strings.TrimSpace(fnc.Doc.Text())
+
+	return f
 }
