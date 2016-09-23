@@ -9,26 +9,21 @@ import (
 	"testing"
 )
 
-const testFileSrc = `package testfile
-
-import "fmt"
-
-// I'm a comment for ExportedFunctionOne
-func ExportedFunctionOne() string {
-	return fmt.Sprint("ExportedFunctionOne")
-}
-
-// I'm a comment for UnexportedFunctionOne
-func unexportedFunctionOne() string {
-	return fmt.Sprint("ExportedFunctionOne")
-}`
-
 var fset = token.NewFileSet()
 var file *ast.File
 
+const (
+	tf1FuncName = "ExportedFunctionOne"
+	tf1FuncSig  = "func ExportedFunctionOne() string"
+	tf1FuncDoc  = "I'm a comment for ExportedFunctionOne"
+
+	tf1Path   = "testfiles/testfile1.go"
+	tfPkgName = "testfiles"
+)
+
 func init() {
 	var err error
-	file, err = parser.ParseFile(fset, "", testFileSrc, parser.ParseComments)
+	file, err = parser.ParseFile(fset, tf1Path, nil, parser.ParseComments)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -47,17 +42,10 @@ func TestParseImports(t *testing.T) {
 }
 
 func TestParseFunction(t *testing.T) {
-	newfset := token.NewFileSet()
-
-	newfile, err := parser.ParseFile(newfset, "", testFileSrc, parser.ParseComments)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
 	funcs := []*Function{}
 
 	bb := new(bytes.Buffer)
-	for _, d := range newfile.Decls {
+	for _, d := range file.Decls {
 		if fnc, ok := d.(*ast.FuncDecl); ok {
 			f := ParseFunction(fnc, fset, bb)
 			if f != nil {
@@ -66,45 +54,67 @@ func TestParseFunction(t *testing.T) {
 		}
 	}
 
-	if funcs[0].Name != "ExportedFunctionOne" {
-		t.Errorf("function name incorrect, expected ExportedFunctionOne, got %s", funcs[0].Name)
+	if funcs[0].Name != tf1FuncName {
+		t.Errorf("function name incorrect, expected %s, got %s",
+			tf1FuncName, funcs[0].Name)
 	}
 
-	signature := "func ExportedFunctionOne() string"
-	if funcs[0].Signature != signature {
+	if funcs[0].Signature != tf1FuncSig {
 		t.Errorf("function signature incorrect, expected %s, got %s",
-			signature, funcs[0].Signature)
+			tf1FuncSig, funcs[0].Signature)
 	}
 
-	documentation := "I'm a comment for ExportedFunctionOne"
-	if funcs[0].Documentation != documentation {
+	if funcs[0].Documentation != tf1FuncDoc {
 		t.Errorf("function documentation incorrect, expected %s, got %s",
-			documentation, funcs[0].Documentation)
+			tf1FuncDoc, funcs[0].Documentation)
 	}
 }
 
 func TestParseFile(t *testing.T) {
-	functions := ParseFile(file, fset)
+	funcs := ParseFile(file, fset)
 
 	// Should only find exported functions.
-	if len(functions) > 1 {
-		t.Errorf("expected to find 1 function, found %d", len(functions))
+	if len(funcs) > 1 {
+		t.Errorf("expected to find 1 function, found %d", len(funcs))
 	}
 
-	if functions[0].Name != "ExportedFunctionOne" {
-		t.Errorf("function name incorrect, expected ExportedFunctionOne, got %s",
-			functions[0].Name)
+	if funcs[0].Name != tf1FuncName {
+		t.Errorf("function name incorrect, expected %s, got %s",
+			tf1FuncName, funcs[0].Name)
 	}
 
-	signature := "func ExportedFunctionOne() string"
-	if functions[0].Signature != signature {
+	if funcs[0].Signature != tf1FuncSig {
 		t.Errorf("function signature incorrect, expected %s, got %s",
-			signature, functions[0].Signature)
+			tf1FuncSig, funcs[0].Signature)
 	}
 
-	documentation := "I'm a comment for ExportedFunctionOne"
-	if functions[0].Documentation != documentation {
+	if funcs[0].Documentation != tf1FuncDoc {
 		t.Errorf("function documentation incorrect, expected %s, got %s",
-			documentation, functions[0].Documentation)
+			tf1FuncDoc, funcs[0].Documentation)
+	}
+}
+
+func TestParsePackage(t *testing.T) {
+	pkgs, err := parser.ParseDir(fset, "testfiles", FilterIgnoreTests, parser.ParseComments)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(pkgs) != 1 {
+		t.Errorf("expected 1 package, found %d", len(pkgs))
+	}
+
+	if _, exists := pkgs[tfPkgName]; !exists {
+		t.Errorf("package %s not found", tfPkgName)
+	}
+
+	pkg := ParsePackage(pkgs[tfPkgName], fset)
+
+	if pkg.Name != tfPkgName {
+		t.Errorf("expected package name %s, got %s", pkgs[tfPkgName].Name)
+	}
+
+	if len(pkg.Funcs) != 2 {
+		t.Errorf("expected to find 2 functions, found %d", len(pkg.Funcs))
 	}
 }
