@@ -150,3 +150,15 @@ func ParseFunction(fnc *ast.FuncDecl, fset *token.FileSet, bb *bytes.Buffer) *Fu
 
 	return f
 }
+
+// ParseImports generates a list of imports from an *ast.File object.
+func ParseImports(file *ast.File) []string {
+	imports := []string{}
+
+	// Append the file's imports to the imports string slice.
+	for _, i := range file.Imports {
+		imports = append(imports, strings.Trim(i.Path.Value, "\""))
+	}
+
+	return imports
+}
