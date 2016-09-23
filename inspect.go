@@ -26,8 +26,8 @@ var FilterIgnoreTests = func(info os.FileInfo) bool {
 // A Package contains a package name and a slice
 // of all of the Function's that the package contains.
 type Package struct {
-	Name  string
-	Funcs []*Function
+	Name  string      `json:"-"`
+	Funcs []*Function `json:",omitempty"`
 }
 
 // A Function describes a function.
