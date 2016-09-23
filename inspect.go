@@ -6,7 +6,6 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"io/ioutil"
 	"strings"
 )
 
@@ -53,16 +52,8 @@ type File struct {
 //
 // If src != nil, NewFile parses the source from src.
 func NewFile(filename string, src interface{}) (*File, error) {
-	if src == nil {
-		slurp, err := ioutil.ReadFile(filename)
-		if err != nil {
-			return nil, err
-		}
-		src = bytes.NewReader(slurp)
-	}
-
 	// Parse the Go source from either filename or src.
-	parsed, err := parser.ParseFile(fset, "", src, parser.ParseComments)
+	parsed, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
