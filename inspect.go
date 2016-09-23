@@ -12,19 +12,28 @@ import (
 	"strings"
 )
 
+// ErrParseDir is an error for when there is an error parsing a directory.
 var ErrParseDir = errors.New("error: parsing directory")
 
+// FilterIgnoreTests is a filter function for parser.ParseDir
+// that ignores all test files.
 var FilterIgnoreTests = func(info os.FileInfo) bool {
 	return !strings.HasSuffix(info.Name(), "_test.go")
 }
 
 // A Package describes a package.
+//
+// A Package contains a package name and a slice
+// of all of the Function's that the package contains.
 type Package struct {
 	Name  string
 	Funcs []*Function
 }
 
 // A Function describes a function.
+//
+// A Function contains a function name, function signature
+// and also the function's documentation.
 type Function struct {
 	Name          string `json:"Name"`
 	Signature     string `json:"Sig"`
@@ -32,6 +41,8 @@ type Function struct {
 }
 
 // ParsePackagesFromDir parses all packages in a directory.
+//
+// If ignoreTests is true, all test files will be ignored.
 //
 // If there are directories contained within dir, ParsePackagesFromDir
 // attempts to traverse into those directories as well.
