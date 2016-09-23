@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"go/ast"
 	"go/parser"
+	"go/printer"
 	"go/token"
 	"io"
 	"io/ioutil"
 	"strings"
 )
+
+var fset = token.NewFileSet()
 
 // A Function contains a function name and it's documentation text.
 type Function struct {
@@ -60,7 +63,7 @@ func NewFile(filename string, src interface{}) (*File, error) {
 	}
 
 	// Parse the Go source from either filename or src.
-	parsed, err := parser.ParseFile(token.NewFileSet(), "", src, parser.ParseComments)
+	parsed, err := parser.ParseFile(fset, "", src, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
@@ -83,39 +86,29 @@ func NewFile(filename string, src interface{}) (*File, error) {
 func InspectFunctions(file *ast.File, fileReader io.ReadSeeker) (map[string]*Function, error) {
 	functions := make(map[string]*Function)
 
-	var bb = new(bytes.Buffer)
-	for _, d := range file.Decls {
-		if f, okay := d.(*ast.FuncDecl); okay {
-			if f.Body != nil {
-				sigStart := int64(f.Pos() - 1)
-				sigEnd := int64(f.Body.Lbrace - 2)
+	bb := new(bytes.Buffer)
+	ast.Inspect(file, func(n ast.Node) bool {
+		bb.Reset()
+		if fnc, ok := n.(*ast.FuncDecl); ok {
+			fnc.Body = nil
+			if err := printer.Fprint(bb, fset, fnc); err != nil {
+				return false
+			}
 
-				toRead := sigEnd - sigStart
+			var startPos int
+			if fnc.Doc.Text() != "" {
+				startPos = int(fnc.Type.Pos() - fnc.Doc.Pos())
+			}
 
-				// Go to the start of the function declaration.
-				_, err := fileReader.Seek(sigStart, io.SeekStart)
-				if err != nil {
-					return nil, err
-				}
-
-				// Make sure bb is empty.
-				bb.Reset()
-
-				// Read toRead number of bytes from fileReader to bb.
-				_, err = io.CopyN(bb, fileReader, toRead)
-				if err != nil && err != io.EOF {
-					return nil, err
-				}
-
-				functions[f.Name.String()] = &Function{
-					file.Name.String(),
-					f.Name.String(),
-					strings.TrimSpace(f.Doc.Text()),
-					bb.String(),
-				}
+			functions[fnc.Name.Name] = &Function{
+				file.Name.String(),
+				fnc.Name.Name,
+				strings.TrimSpace(fnc.Doc.Text()),
+				bb.String()[startPos:],
 			}
 		}
-	}
+		return true
+	})
 
 	return functions, nil
 }
