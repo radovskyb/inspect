@@ -47,7 +47,7 @@ func TestParseFunction(t *testing.T) {
 	bb := new(bytes.Buffer)
 	for _, d := range file.Decls {
 		if fnc, ok := d.(*ast.FuncDecl); ok {
-			f := ParseFunction(fnc, fset, bb)
+			f := ParseFunction(fset, fnc, bb)
 			if f != nil {
 				funcs = append(funcs, f)
 			}
@@ -71,7 +71,7 @@ func TestParseFunction(t *testing.T) {
 }
 
 func TestParseFile(t *testing.T) {
-	funcs := ParseFile(file, fset)
+	funcs := ParseFile(fset, file)
 
 	// Should only find exported functions.
 	if len(funcs) > 1 {
@@ -112,7 +112,7 @@ func TestParsePackage(t *testing.T) {
 		t.Errorf("expected 2 package files, found %d", len(pkgs[tfPkgName].Files))
 	}
 
-	pkg := ParsePackage(pkgs[tfPkgName], fset)
+	pkg := ParsePackage(fset, pkgs[tfPkgName])
 
 	if pkg.Name != tfPkgName {
 		t.Errorf("expected package name %s, got %s", pkgs[tfPkgName].Name)

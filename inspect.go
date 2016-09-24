@@ -72,7 +72,7 @@ func ParsePackagesFromDir(dir string, ignoreTests bool) (map[string]*Package, er
 		}
 
 		for _, pkg := range parsed {
-			p := ParsePackage(pkg, fset)
+			p := ParsePackage(fset, pkg)
 			if _, exists := pkgs[pkg.Name]; exists {
 				pkgs[pkg.Name].Funcs = append(pkgs[pkg.Name].Funcs, p.Funcs...)
 			} else {
@@ -85,7 +85,7 @@ func ParsePackagesFromDir(dir string, ignoreTests bool) (map[string]*Package, er
 }
 
 // ParsePackage returns a *Package generated from an *ast.Package.
-func ParsePackage(pkg *ast.Package, fset *token.FileSet) *Package {
+func ParsePackage(fset *token.FileSet, pkg *ast.Package) *Package {
 	// Merge all of the package's files into a single file, and filter
 	// out any import or function duplicates along the way.
 	mergedFile := ast.MergePackageFiles(pkg,
@@ -95,20 +95,20 @@ func ParsePackage(pkg *ast.Package, fset *token.FileSet) *Package {
 	// Return a new Package with it's fields appropriately set.
 	return &Package{
 		Name:    pkg.Name,
-		Funcs:   ParseFile(mergedFile, fset),
+		Funcs:   ParseFile(fset, mergedFile),
 		Imports: ParseFileImports(mergedFile),
 	}
 }
 
 // ParseFile returns a []*Function's generated from an *ast.File.
-func ParseFile(file *ast.File, fset *token.FileSet) []*Function {
+func ParseFile(fset *token.FileSet, file *ast.File) []*Function {
 	funcs := []*Function{}
 
 	bb := new(bytes.Buffer)
 	ast.Inspect(file, func(n ast.Node) bool {
 		bb.Reset()
 		if fnc, ok := n.(*ast.FuncDecl); ok {
-			f := ParseFunction(fnc, fset, bb)
+			f := ParseFunction(fset, fnc, bb)
 			if f != nil {
 				funcs = append(funcs, f)
 			}
@@ -120,7 +120,7 @@ func ParseFile(file *ast.File, fset *token.FileSet) []*Function {
 }
 
 // ParseFunction returns a *Function's generated from an *ast.FuncDecl.
-func ParseFunction(fnc *ast.FuncDecl, fset *token.FileSet, bb *bytes.Buffer) *Function {
+func ParseFunction(fset *token.FileSet, fnc *ast.FuncDecl, bb *bytes.Buffer) *Function {
 	f := &Function{Name: fnc.Name.Name}
 
 	// Skip the function if it's unexported.
