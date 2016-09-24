@@ -87,7 +87,7 @@ func ParsePackagesFromDir(dir string, ignoreTests bool) (map[string]*Package, er
 // ParsePackage returns a *Package generated from an *ast.Package.
 func ParsePackage(pkg *ast.Package, fset *token.FileSet) *Package {
 	// Merge all of the package's files into a single file, and filter
-	// import duplicates along the way.
+	// out any import or function duplicates along the way.
 	mergedFile := ast.MergePackageFiles(pkg,
 		ast.FilterFuncDuplicates+ast.FilterImportDuplicates,
 	)
