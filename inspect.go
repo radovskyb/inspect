@@ -1,3 +1,7 @@
+// TODO(br): Add FuncOption iota type which contains FuncExported and FuncUnexported.
+// FuncExported returns only exported functions and FuncUnexported returns only
+// unexported functions. Adding them both together returns both, which will
+// be the default FuncOption.
 package inspect
 
 import (
@@ -39,6 +43,12 @@ type Function struct {
 	Name          string `json:"Name"`
 	Signature     string `json:"Sig"`
 	Documentation string `json:"Doc,omitempty"`
+}
+
+// IsExported is a wrapper around ast.IsExported that returns a true or false
+// value based on whether the current function is exported or not.
+func (f *Function) IsExported() bool {
+	return ast.IsExported(f.Name)
 }
 
 // ParsePackagesFromDir parses all packages in a directory.

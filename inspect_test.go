@@ -122,6 +122,16 @@ func TestParseFileFuncsUnexported(t *testing.T) {
 	}
 }
 
+func TestIsExported(t *testing.T) {
+	// Parse file and return only exported functions.
+	funcs := ParseFileFuncs(fset, file, true)
+	for _, fnc := range funcs {
+		if !fnc.IsExported() {
+			t.Errorf("expected no unexported functions, %s is unexported", fnc.Name)
+		}
+	}
+}
+
 func TestParsePackage(t *testing.T) {
 	pkgs, err := parser.ParseDir(fset, "testfiles", FilterIgnoreTests, parser.ParseComments)
 	if err != nil {
