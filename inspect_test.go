@@ -75,9 +75,9 @@ func TestParseFunction(t *testing.T) {
 }
 
 func TestParseFileFuncsExported(t *testing.T) {
-	funcs := ParseFileFuncs(fset, file, true)
+	// Only parse exported functions.
+	funcs := ParseFileFuncs(fset, file, FuncExported)
 
-	// Should only find exported functions.
 	if len(funcs) > 1 {
 		t.Errorf("expected to find 1 function, found %d", len(funcs))
 	}
@@ -99,11 +99,35 @@ func TestParseFileFuncsExported(t *testing.T) {
 }
 
 func TestParseFileFuncsUnexported(t *testing.T) {
-	funcs := ParseFileFuncs(fset, file, false)
+	// Only parse unexported functions.
+	funcs := ParseFileFuncs(fset, file, FuncUnexported)
 
-	// Should only find exported functions.
-	if len(funcs) != 2 {
+	if len(funcs) > 1 {
 		t.Errorf("expected to find 1 function, found %d", len(funcs))
+	}
+
+	if funcs[0].Name != tf1UnexportedFuncName {
+		t.Errorf("function name incorrect, expected %s, got %s",
+			tf1UnexportedFuncName, funcs[0].Name)
+	}
+
+	if funcs[0].Signature != tf1UnexportedFuncSig {
+		t.Errorf("function signature incorrect, expected %s, got %s",
+			tf1UnexportedFuncSig, funcs[0].Signature)
+	}
+
+	if funcs[0].Documentation != tf1UnexportedFuncDoc {
+		t.Errorf("function documentation incorrect, expected %s, got %s",
+			tf1UnexportedFuncDoc, funcs[0].Documentation)
+	}
+}
+
+func TestParseFileFuncsBoth(t *testing.T) {
+	// Parse both exported and unexported functions.
+	funcs := ParseFileFuncs(fset, file, FuncUnexported|FuncExported)
+
+	if len(funcs) != 2 {
+		t.Errorf("expected to find 2 function, found %d", len(funcs))
 	}
 
 	if funcs[1].Name != tf1UnexportedFuncName {
@@ -124,10 +148,20 @@ func TestParseFileFuncsUnexported(t *testing.T) {
 
 func TestIsExported(t *testing.T) {
 	// Parse file and return only exported functions.
-	funcs := ParseFileFuncs(fset, file, true)
+	funcs := ParseFileFuncs(fset, file, FuncExported)
 	for _, fnc := range funcs {
 		if !fnc.IsExported() {
 			t.Errorf("expected no unexported functions, %s is unexported", fnc.Name)
+		}
+	}
+}
+
+func TestIsNotExported(t *testing.T) {
+	// Parse file and return only exported functions.
+	funcs := ParseFileFuncs(fset, file, FuncUnexported)
+	for _, fnc := range funcs {
+		if fnc.IsExported() {
+			t.Errorf("expected no exported functions, %s is exported", fnc.Name)
 		}
 	}
 }
@@ -150,7 +184,7 @@ func TestParsePackage(t *testing.T) {
 		t.Errorf("expected 2 package files, found %d", len(pkgs[tfPkgName].Files))
 	}
 
-	pkg := ParsePackage(fset, pkgs[tfPkgName], true)
+	pkg := ParsePackage(fset, pkgs[tfPkgName], FuncExported)
 
 	if pkg.Name != tfPkgName {
 		t.Errorf("expected package name %s, got %s", pkgs[tfPkgName].Name)
