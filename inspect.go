@@ -50,7 +50,7 @@ type Function struct {
 //
 // If an error occurs whilst traversing the nested directories,
 // ParsePackagesFromDir will return a map containing any correctly
-// passed packages and the error that occured.
+// parsed packages and the error that occured.
 func ParsePackagesFromDir(dir string, ignoreTests bool) (map[string]*Package, error) {
 	fset := token.NewFileSet()
 
@@ -61,7 +61,7 @@ func ParsePackagesFromDir(dir string, ignoreTests bool) (map[string]*Package, er
 		filter = FilterIgnoreTests
 	}
 
-	if err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	return pkgs, filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() || strings.HasPrefix(path, filepath.Join(dir, "cmd")) {
 			return nil
 		}
@@ -81,11 +81,7 @@ func ParsePackagesFromDir(dir string, ignoreTests bool) (map[string]*Package, er
 		}
 
 		return nil
-	}); err != nil {
-		return pkgs, err
-	}
-
-	return pkgs, nil
+	})
 }
 
 // ParsePackage returns a *Package generated from an *ast.Package.
