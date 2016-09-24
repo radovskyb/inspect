@@ -26,7 +26,7 @@ var FilterIgnoreTests = func(info os.FileInfo) bool {
 type FuncOption int
 
 const (
-	FuncUnexported = 1 << iota
+	FuncUnexported FuncOption = 1 << iota
 	FuncExported
 )
 
