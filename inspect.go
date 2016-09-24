@@ -23,11 +23,12 @@ var FilterIgnoreTests = func(info os.FileInfo) bool {
 
 // A Package describes a package.
 //
-// A Package contains a package name and a slice
-// of all of the Function's that the package contains.
+// A Package contains a package name, a slice of the package's imports,
+// and also a slice of all of the Function's that the package contains.
 type Package struct {
-	Name  string      `json:"-"`
-	Funcs []*Function `json:",omitempty"`
+	Name    string      `json:"-"`
+	Imports []string    `json:",omitempty"`
+	Funcs   []*Function `json:",omitempty"`
 }
 
 // A Function describes a function.
@@ -89,21 +90,18 @@ func ParsePackagesFromDir(dir string, ignoreTests bool) (map[string]*Package, er
 
 // ParsePackage returns a *Package generated from an *ast.Package.
 func ParsePackage(pkg *ast.Package, fset *token.FileSet) *Package {
-	p := &Package{Name: pkg.Name, Funcs: []*Function{}}
+	// Merge all of the package's files into a single file, and filter
+	// import duplicates along the way.
+	mergedFile := ast.MergePackageFiles(pkg,
+		ast.FilterFuncDuplicates+ast.FilterImportDuplicates,
+	)
 
-	bb := new(bytes.Buffer)
-	ast.Inspect(pkg, func(n ast.Node) bool {
-		bb.Reset()
-		if fnc, ok := n.(*ast.FuncDecl); ok {
-			f := ParseFunction(fnc, fset, bb)
-			if f != nil {
-				p.Funcs = append(p.Funcs, f)
-			}
-		}
-		return true
-	})
-
-	return p
+	// Return a new Package with it's fields appropriately set.
+	return &Package{
+		Name:    pkg.Name,
+		Funcs:   ParseFile(mergedFile, fset),
+		Imports: ParseFileImports(mergedFile),
+	}
 }
 
 // ParseFile returns a []*Function's generated from an *ast.File.
@@ -151,8 +149,8 @@ func ParseFunction(fnc *ast.FuncDecl, fset *token.FileSet, bb *bytes.Buffer) *Fu
 	return f
 }
 
-// ParseImports generates a list of imports from an *ast.File object.
-func ParseImports(file *ast.File) []string {
+// ParseFileImports generates a list of imports from an *ast.File object.
+func ParseFileImports(file *ast.File) []string {
 	imports := []string{}
 
 	// Append the file's imports to the imports string slice.

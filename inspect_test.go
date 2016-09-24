@@ -29,11 +29,11 @@ func init() {
 	}
 }
 
-func TestParseImports(t *testing.T) {
-	imports := ParseImports(file)
+func TestParseFileImports(t *testing.T) {
+	imports := ParseFileImports(file)
 
-	if len(imports) != 1 {
-		t.Errorf("%d imports found. expected 0", len(imports))
+	if len(imports) != 2 {
+		t.Errorf("%d imports found. expected 2", len(imports))
 	}
 
 	if imports[0] != "fmt" {
@@ -108,10 +108,18 @@ func TestParsePackage(t *testing.T) {
 		t.Errorf("package %s not found", tfPkgName)
 	}
 
+	if len(pkgs[tfPkgName].Files) != 2 {
+		t.Errorf("expected 2 package files, found %d", len(pkgs[tfPkgName].Files))
+	}
+
 	pkg := ParsePackage(pkgs[tfPkgName], fset)
 
 	if pkg.Name != tfPkgName {
 		t.Errorf("expected package name %s, got %s", pkgs[tfPkgName].Name)
+	}
+
+	if len(pkg.Imports) != 3 {
+		t.Errorf("expected to find 3 imports, found %d", len(pkg.Imports))
 	}
 
 	if len(pkg.Funcs) != 2 {
