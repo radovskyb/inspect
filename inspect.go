@@ -51,7 +51,9 @@ type Function struct {
 // If an error occurs whilst traversing the nested directories,
 // ParsePackagesFromDir will return a map containing any correctly
 // parsed packages and the error that occured.
-func ParsePackagesFromDir(dir string, ignoreTests bool) (map[string]*Package, error) {
+//
+// If exportedOnly is set to true, only exported functions are parsed.
+func ParsePackagesFromDir(dir string, ignoreTests, exportedOnly bool) (map[string]*Package, error) {
 	fset := token.NewFileSet()
 
 	pkgs := make(map[string]*Package)
@@ -72,7 +74,7 @@ func ParsePackagesFromDir(dir string, ignoreTests bool) (map[string]*Package, er
 		}
 
 		for _, pkg := range parsed {
-			p := ParsePackage(fset, pkg)
+			p := ParsePackage(fset, pkg, exportedOnly)
 			if _, exists := pkgs[pkg.Name]; exists {
 				pkgs[pkg.Name].Funcs = append(pkgs[pkg.Name].Funcs, p.Funcs...)
 			} else {
@@ -85,7 +87,9 @@ func ParsePackagesFromDir(dir string, ignoreTests bool) (map[string]*Package, er
 }
 
 // ParsePackage returns a *Package generated from an *ast.Package.
-func ParsePackage(fset *token.FileSet, pkg *ast.Package) *Package {
+//
+// If exportedOnly is set to true, only exported functions are parsed.
+func ParsePackage(fset *token.FileSet, pkg *ast.Package, exportedOnly bool) *Package {
 	// Merge all of the package's files into a single file, and filter
 	// out any import or function duplicates along the way.
 	mergedFile := ast.MergePackageFiles(pkg,
@@ -95,19 +99,26 @@ func ParsePackage(fset *token.FileSet, pkg *ast.Package) *Package {
 	// Return a new Package with it's fields appropriately set.
 	return &Package{
 		Name:    pkg.Name,
-		Funcs:   ParseFile(fset, mergedFile),
+		Funcs:   ParseFileFuncs(fset, mergedFile, exportedOnly),
 		Imports: ParseFileImports(mergedFile),
 	}
 }
 
-// ParseFile returns a []*Function's generated from an *ast.File.
-func ParseFile(fset *token.FileSet, file *ast.File) []*Function {
+// ParseFileFuncs returns a []*Function's generated from an *ast.File.
+//
+// If exportedOnly is set to true, only exported functions are parsed.
+func ParseFileFuncs(fset *token.FileSet, file *ast.File, exportedOnly bool) []*Function {
 	funcs := []*Function{}
 
 	bb := new(bytes.Buffer)
 	ast.Inspect(file, func(n ast.Node) bool {
 		bb.Reset()
 		if fnc, ok := n.(*ast.FuncDecl); ok {
+			// Skip the function if it's unexported.
+			if exportedOnly && !fnc.Name.IsExported() {
+				return false
+			}
+
 			f := ParseFunction(fset, fnc, bb)
 			if f != nil {
 				funcs = append(funcs, f)
@@ -122,11 +133,6 @@ func ParseFile(fset *token.FileSet, file *ast.File) []*Function {
 // ParseFunction returns a *Function's generated from an *ast.FuncDecl.
 func ParseFunction(fset *token.FileSet, fnc *ast.FuncDecl, bb *bytes.Buffer) *Function {
 	f := &Function{Name: fnc.Name.Name}
-
-	// Skip the function if it's unexported.
-	if !fnc.Name.IsExported() {
-		return nil
-	}
 
 	fnc.Body = nil
 

@@ -17,6 +17,10 @@ const (
 	tf1FuncSig  = "func ExportedFunctionOne() string"
 	tf1FuncDoc  = "I'm a comment for ExportedFunctionOne"
 
+	tf1UnexportedFuncName = "unexportedFunctionOne"
+	tf1UnexportedFuncSig  = "func unexportedFunctionOne() string"
+	tf1UnexportedFuncDoc  = "I'm a comment for unexportedFunctionOne"
+
 	tf1Path   = "testfiles/testfile1.go"
 	tfPkgName = "testfiles"
 )
@@ -70,8 +74,8 @@ func TestParseFunction(t *testing.T) {
 	}
 }
 
-func TestParseFile(t *testing.T) {
-	funcs := ParseFile(fset, file)
+func TestParseFileFuncsExported(t *testing.T) {
+	funcs := ParseFileFuncs(fset, file, true)
 
 	// Should only find exported functions.
 	if len(funcs) > 1 {
@@ -94,6 +98,30 @@ func TestParseFile(t *testing.T) {
 	}
 }
 
+func TestParseFileFuncsUnexported(t *testing.T) {
+	funcs := ParseFileFuncs(fset, file, false)
+
+	// Should only find exported functions.
+	if len(funcs) != 2 {
+		t.Errorf("expected to find 1 function, found %d", len(funcs))
+	}
+
+	if funcs[1].Name != tf1UnexportedFuncName {
+		t.Errorf("function name incorrect, expected %s, got %s",
+			tf1UnexportedFuncName, funcs[1].Name)
+	}
+
+	if funcs[1].Signature != tf1UnexportedFuncSig {
+		t.Errorf("function signature incorrect, expected %s, got %s",
+			tf1UnexportedFuncSig, funcs[1].Signature)
+	}
+
+	if funcs[1].Documentation != tf1UnexportedFuncDoc {
+		t.Errorf("function documentation incorrect, expected %s, got %s",
+			tf1UnexportedFuncDoc, funcs[1].Documentation)
+	}
+}
+
 func TestParsePackage(t *testing.T) {
 	pkgs, err := parser.ParseDir(fset, "testfiles", FilterIgnoreTests, parser.ParseComments)
 	if err != nil {
@@ -112,7 +140,7 @@ func TestParsePackage(t *testing.T) {
 		t.Errorf("expected 2 package files, found %d", len(pkgs[tfPkgName].Files))
 	}
 
-	pkg := ParsePackage(fset, pkgs[tfPkgName])
+	pkg := ParsePackage(fset, pkgs[tfPkgName], true)
 
 	if pkg.Name != tfPkgName {
 		t.Errorf("expected package name %s, got %s", pkgs[tfPkgName].Name)
