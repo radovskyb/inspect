@@ -22,7 +22,7 @@ func main() {
 	pkgsRoot := filepath.Join(strings.TrimSuffix(gobin, filepath.Join("bin", "go")), "src")
 
 	// Parse all Go packages, ignoring all test files and unexported functions.
-	pkgs, err := inspect.ParsePackagesFromDir(pkgsRoot, true, true)
+	pkgs, err := inspect.ParsePackagesFromDir(pkgsRoot, true, inspect.FuncExported)
 	if err != nil {
 		log.Fatalln(err)
 	}
