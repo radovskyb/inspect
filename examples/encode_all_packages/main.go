@@ -21,8 +21,8 @@ func main() {
 	// Get the path of the root of the Go standard library packages.
 	pkgsRoot := filepath.Join(strings.TrimSuffix(gobin, filepath.Join("bin", "go")), "src")
 
-	// Parse all Go packages.
-	pkgs, err := inspect.ParsePackagesFromDir(pkgsRoot, true)
+	// Parse all Go packages, ignoring all test files and unexported functions.
+	pkgs, err := inspect.ParsePackagesFromDir(pkgsRoot, true, true)
 	if err != nil {
 		log.Fatalln(err)
 	}
