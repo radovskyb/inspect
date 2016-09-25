@@ -28,6 +28,8 @@ type FuncOption int
 const (
 	FuncUnexported FuncOption = 1 << iota
 	FuncExported
+
+	FuncBoth = FuncExported | FuncUnexported
 )
 
 // A Package describes a package.

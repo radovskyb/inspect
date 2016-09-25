@@ -124,7 +124,7 @@ func TestParseFileFuncsUnexported(t *testing.T) {
 
 func TestParseFileFuncsBoth(t *testing.T) {
 	// Parse both exported and unexported functions.
-	funcs := ParseFileFuncs(fset, file, FuncUnexported|FuncExported)
+	funcs := ParseFileFuncs(fset, file, FuncBoth)
 
 	if len(funcs) != 2 {
 		t.Errorf("expected to find 2 function, found %d", len(funcs))
