@@ -23,13 +23,13 @@ import (
 
 func main() {
 	// Find the current Go intallation.
-	gobin, err := exec.LookPath("go")
+	goroot, err := exec.Command("go", "env", "GOROOT").Output()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	// Get the path of the root of the Go standard library packages.
-	pkgsRoot := filepath.Join(strings.TrimSuffix(gobin, filepath.Join("bin", "go")), "src")
+	// Get the directory of the Go standard package library.
+	pkgsRoot := filepath.Join(strings.TrimSpace(string(goroot)), "src")
 
 	// Parse all Go packages, ignoring all test files and unexported functions.
 	pkgs, err := inspect.ParsePackagesFromDir(pkgsRoot, true, inspect.FuncExported)
