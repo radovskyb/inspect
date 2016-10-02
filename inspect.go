@@ -79,6 +79,10 @@ func ParsePackagesFromDir(dir string, ignoreTests bool, funcOption FuncOption) (
 	}
 
 	return pkgs, filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		if !info.IsDir() || strings.HasPrefix(path, filepath.Join(dir, "cmd")) {
 			return nil
 		}
