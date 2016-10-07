@@ -125,6 +125,11 @@ func ParsePackage(fset *token.FileSet, pkg *ast.Package, funcOption FuncOption) 
 func ParseFileFuncs(fset *token.FileSet, file *ast.File, funcOption FuncOption) []*Function {
 	funcs := []*Function{}
 
+	// If funcOption isn't set then parse both exported and unexported functions.
+	if funcOption&FuncUnexported == 0 && funcOption&FuncExported == 0 {
+		funcOption = FuncBoth
+	}
+
 	bb := new(bytes.Buffer)
 	ast.Inspect(file, func(n ast.Node) bool {
 		bb.Reset()
