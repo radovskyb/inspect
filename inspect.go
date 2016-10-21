@@ -67,7 +67,7 @@ func (f *Function) IsExported() bool {
 //
 // If an error occurs whilst traversing the nested directories,
 // ParsePackagesFromDir will return a map containing any correctly
-// parsed packages and the error that occured.
+// parsed packages and the error that occurred.
 func ParsePackagesFromDir(dir string, ignoreTests bool, funcOption FuncOption) (map[string]*Package, error) {
 	fset := token.NewFileSet()
 
