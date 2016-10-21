@@ -187,7 +187,7 @@ func TestParsePackage(t *testing.T) {
 	pkg := ParsePackage(fset, pkgs[tfPkgName], FuncExported)
 
 	if pkg.Name != tfPkgName {
-		t.Errorf("expected package name %s, got %s", pkgs[tfPkgName].Name)
+		t.Errorf("expected package name %s, got %s", pkg.Name, pkgs[tfPkgName].Name)
 	}
 
 	if len(pkg.Imports) != 3 {
