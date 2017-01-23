@@ -49,6 +49,11 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	defer func() {
+		if err := jsonFile.Close(); err != nil {
+			log.Fatalln(err)
+		}
+	}()
 
 	// Create a new json encoder that writes to jsonFile and set it's
 	// indentation formatting to a single tab.
