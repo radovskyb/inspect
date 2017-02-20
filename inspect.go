@@ -3,6 +3,7 @@ package inspect
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/printer"
@@ -37,9 +38,16 @@ const (
 // A Package contains a package name, a slice of the package's imports,
 // and also a slice of all of the Function's that the package contains.
 type Package struct {
-	Name    string      `json:"-"`
-	Imports []string    `json:",omitempty"`
-	Funcs   []*Function `json:",omitempty"`
+	Name       string       `json:"-"`
+	Imports    []string     `json:",omitempty"`
+	Funcs      []*Function  `json:",omitempty"`
+	Interfaces []*Interface `json:",omitempty"`
+}
+
+type Interface struct {
+	Name       string   `json:"Name"`
+	Methods    []string `json:",omitempty"`
+	Interfaces []string `json:",omitempty"`
 }
 
 // A Function describes a function.
@@ -115,13 +123,14 @@ func ParsePackage(fset *token.FileSet, pkg *ast.Package, funcOption FuncOption) 
 
 	// Return a new Package with it's fields appropriately set.
 	return &Package{
-		Name:    pkg.Name,
-		Funcs:   ParseFileFuncs(fset, mergedFile, funcOption),
-		Imports: ParseFileImports(mergedFile),
+		Name:       pkg.Name,
+		Funcs:      ParseFileFuncs(fset, mergedFile, funcOption),
+		Imports:    ParseFileImports(mergedFile),
+		Interfaces: ParseFileInterfaces(fset, mergedFile),
 	}
 }
 
-// ParseFileFuncs returns a []*Function's generated from an *ast.File.
+// ParseFileFuncs returns a []*Function generated from an *ast.File.
 func ParseFileFuncs(fset *token.FileSet, file *ast.File, funcOption FuncOption) []*Function {
 	funcs := []*Function{}
 
@@ -151,7 +160,7 @@ func ParseFileFuncs(fset *token.FileSet, file *ast.File, funcOption FuncOption) 
 	return funcs
 }
 
-// ParseFunction returns a *Function's generated from an *ast.FuncDecl.
+// ParseFunction returns a []*Function generated from an *ast.FuncDecl.
 func ParseFunction(fset *token.FileSet, fnc *ast.FuncDecl, bb *bytes.Buffer) *Function {
 	f := &Function{Name: fnc.Name.Name}
 
@@ -182,4 +191,51 @@ func ParseFileImports(file *ast.File) []string {
 	}
 
 	return imports
+}
+
+// ParseFileInterfaces generates a []*Interface from an *ast.File object.
+func ParseFileInterfaces(fset *token.FileSet, file *ast.File) []*Interface {
+	ifaces := []*Interface{}
+
+	var bb bytes.Buffer
+	ast.Inspect(file, func(n ast.Node) bool {
+		if decl, ok := n.(*ast.GenDecl); ok {
+			for _, spec := range decl.Specs {
+				ts, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					return false
+				}
+				ifaceType, ok := ts.Type.(*ast.InterfaceType)
+				if !ok {
+					return false
+				}
+
+				iface := &Interface{Name: ts.Name.Name, Methods: []string{}}
+				list := ifaceType.Methods.List
+				for _, names := range list {
+					ident, ok := names.Type.(*ast.Ident)
+					if ok {
+						iface.Interfaces = append(iface.Interfaces, ident.Name)
+					}
+					if len(names.Names) == 0 {
+						continue
+					}
+
+					fnc, ok := names.Type.(*ast.FuncType)
+					if ok {
+						printer.Fprint(&bb, fset, fnc)
+						sig := strings.Replace(
+							bb.String(), "func(", fmt.Sprintf("func %s(", names.Names[0].Name), 1,
+						)
+						iface.Methods = append(iface.Methods, sig)
+						bb.Reset()
+					}
+				}
+				ifaces = append(ifaces, iface)
+			}
+		}
+		return true
+	})
+
+	return ifaces
 }
