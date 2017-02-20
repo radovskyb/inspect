@@ -199,40 +199,42 @@ func ParseFileInterfaces(fset *token.FileSet, file *ast.File) []*Interface {
 
 	var bb bytes.Buffer
 	ast.Inspect(file, func(n ast.Node) bool {
-		if decl, ok := n.(*ast.GenDecl); ok {
-			for _, spec := range decl.Specs {
-				ts, ok := spec.(*ast.TypeSpec)
-				if !ok {
-					return false
-				}
-				ifaceType, ok := ts.Type.(*ast.InterfaceType)
-				if !ok {
-					return false
-				}
-
-				iface := &Interface{Name: ts.Name.Name, Methods: []string{}}
-				list := ifaceType.Methods.List
-				for _, names := range list {
-					ident, ok := names.Type.(*ast.Ident)
-					if ok {
-						iface.Interfaces = append(iface.Interfaces, ident.Name)
-					}
-					if len(names.Names) == 0 {
-						continue
-					}
-
-					fnc, ok := names.Type.(*ast.FuncType)
-					if ok {
-						printer.Fprint(&bb, fset, fnc)
-						sig := strings.Replace(
-							bb.String(), "func(", fmt.Sprintf("func %s(", names.Names[0].Name), 1,
-						)
-						iface.Methods = append(iface.Methods, sig)
-						bb.Reset()
-					}
-				}
-				ifaces = append(ifaces, iface)
+		decl, ok := n.(*ast.GenDecl)
+		if !ok {
+			return true
+		}
+		for _, spec := range decl.Specs {
+			ts, ok := spec.(*ast.TypeSpec)
+			if !ok {
+				continue
 			}
+			ifaceType, ok := ts.Type.(*ast.InterfaceType)
+			if !ok {
+				continue
+			}
+
+			iface := &Interface{Name: ts.Name.Name, Methods: []string{}}
+			list := ifaceType.Methods.List
+			for _, names := range list {
+				ident, ok := names.Type.(*ast.Ident)
+				if ok {
+					iface.Interfaces = append(iface.Interfaces, ident.Name)
+				}
+				if len(names.Names) == 0 {
+					continue
+				}
+
+				fnc, ok := names.Type.(*ast.FuncType)
+				if ok {
+					printer.Fprint(&bb, fset, fnc)
+					sig := strings.Replace(
+						bb.String(), "func(", fmt.Sprintf("func %s(", names.Names[0].Name), 1,
+					)
+					iface.Methods = append(iface.Methods, sig)
+					bb.Reset()
+				}
+			}
+			ifaces = append(ifaces, iface)
 		}
 		return true
 	})
