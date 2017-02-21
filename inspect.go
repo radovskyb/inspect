@@ -220,6 +220,12 @@ func ParseFileInterfaces(fset *token.FileSet, file *ast.File) []*Interface {
 				if ok {
 					iface.Interfaces = append(iface.Interfaces, ident.Name)
 				}
+				sel, ok := names.Type.(*ast.SelectorExpr)
+				if ok {
+					printer.Fprint(&bb, fset, sel)
+					iface.Interfaces = append(iface.Interfaces, bb.String())
+					bb.Reset()
+				}
 				if len(names.Names) == 0 {
 					continue
 				}
