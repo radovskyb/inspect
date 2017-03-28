@@ -2,7 +2,6 @@ package inspect
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -12,9 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 )
-
-// ErrParseDir is an error for when there is an error parsing a directory.
-var ErrParseDir = errors.New("error: parsing directory")
 
 // FilterIgnoreTests is a filter function for parser.ParseDir
 // that ignores all test files.
